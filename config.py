@@ -36,8 +36,26 @@ class ConfigManager:
             )
         
         self.projects = {}
+        self.author = ""
         self._load_projects()
+        self._load_author()
     
+    def _load_author(self):
+        """Load Author Name"""
+        candidate = os.getenv('AUTHOR')
+        if not candidate:
+            return        
+        self.author = candidate
+        
+    def get_author(self):
+        """
+        Get author configuration
+        
+        Returns:
+            dict: Dictionary of all projects
+        """
+        return self.author
+        
     def _load_projects(self):
         """Load all project configurations from environment variables"""
         project_num = 1
