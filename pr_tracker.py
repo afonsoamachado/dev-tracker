@@ -2,6 +2,7 @@
 Pull Request tracking module
 Processes and filters PR data from Azure DevOps
 """
+import sys
 from datetime import datetime
 from api_client import AzureDevOpsClient
 from config import ConfigManager
@@ -50,6 +51,9 @@ class PRTracker:
             return True
         # Otherwise, only include repos in the filter list
         return repo_name in self.project_config.repos
+    
+    def get_author(self):
+        return self.config_manager.get_author()
     
     def get_all_pr_stats(self):
         """
