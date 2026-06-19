@@ -1,0 +1,48 @@
+name: Auto Create Release
+
+on:
+  push:
+    branches:
+      - 'release/**' # Triggers on any push to a branch starting with "release/"
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    
+    # CRITICAL: This permission is required to allow the Action to create tags and releases
+    permissions:
+      contents: write 
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Extract Version Name
+        id: get_version
+        run: |
+          # Grabs the branch name (e.g., "release/v1.2.0")
+          BRANCH_NAME="${GITHUB_REF_NAME}"
+          # Strips the "release/" prefix to leave just "v1.2.0"
+          VERSION="${BRANCH_NAME#release/}"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create or Update GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          
+          # Check if the release already exists
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Release $VERSION exists. Updating..."
+            gh release edit "$VERSION" \
+              --title "Release $VERSION" \
+              --generate-notes
+          else
+            echo "Release $VERSION does not exist. Creating..."
+            gh release create "$VERSION" \
+              --title "Release $VERSION" \
+              --generate-notes \
+              --target "$GITHUB_REF_NAME" \
+              --draft=false
+          fi
