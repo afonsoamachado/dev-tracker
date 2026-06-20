@@ -50,26 +50,13 @@ source venv/Scripts/activate
 venv\Scripts\activate.bat
 ```
 
-*Note: After activation, your terminal will show `(venv)` prefix. To deactivate later: `deactivate`*
-
-**Alternative: Run without activation**
+**4. Install**
 ```bash
-./venv/bin/python main.py summary
+pip install -e .
 ```
 
-**3. Install Dependencies**
-
-```bash
-pip install -r requirements-lock.txt
-```
-
-**4. Run the Application**
+**5. Run the Application**
 
 ```bash
 python -m dev_tracker
-```
-
-**5. Install**
-```bash
-pip install -e .
 ```
