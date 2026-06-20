@@ -19,11 +19,12 @@ class AzureDevOpsClient:
         """
         self.auth = AzureDevOpsAuth(project_key)
         self.base_url = self.auth.get_base_url()
+        self.release_base_url = self.auth.get_release_base_url()
         self.headers = self.auth.get_auth_header()
         self.headers['Content-Type'] = 'application/json'
         self.api_version = "7.0"
     
-    def _make_request(self, endpoint, method="GET", params=None):
+    def _make_request(self, host, endpoint, method="GET", params=None):
         """
         Make HTTP request to Azure DevOps API
         
@@ -35,7 +36,7 @@ class AzureDevOpsClient:
         Returns:
             dict: JSON response data
         """
-        url = f"{self.base_url}/{endpoint}"
+        url = f"{host}/{endpoint}"
         
         try:
             if method == "GET":
@@ -58,7 +59,7 @@ class AzureDevOpsClient:
             list: List of repository data
         """
         endpoint = f"_apis/git/repositories?project={self.auth.project}&api-version={self.api_version}"
-        response = self._make_request(endpoint)
+        response = self._make_request(self.base_url,endpoint)
         return response.get('value', [])
     
     def get_pull_requests(self, repo_id, status="active"):
@@ -87,7 +88,7 @@ class AzureDevOpsClient:
             f"&api-version={self.api_version}"
         )
         
-        response = self._make_request(endpoint)
+        response = self._make_request(self.base_url,endpoint)
         return response.get('value', [])
     
     def get_pull_request_details(self, repo_id, pr_id):
@@ -107,7 +108,7 @@ class AzureDevOpsClient:
             f"&api-version={self.api_version}"
         )
         
-        return self._make_request(endpoint)
+        return self._make_request(self.base_url,endpoint)
     
     def get_pr_threads(self, repo_id, pr_id):
         """
@@ -126,5 +127,5 @@ class AzureDevOpsClient:
             f"&api-version={self.api_version}"
         )
         
-        response = self._make_request(endpoint)
+        response = self._make_request(self.base_url,endpoint)
         return response.get('value', [])

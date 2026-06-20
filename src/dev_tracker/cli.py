@@ -8,7 +8,8 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from datetime import datetime
-from dev_tracker.pr_tracker import PRTracker
+from dev_tracker.project_tracker import ProjectTracker
+from dev_tracker.multiple_project_tracker import MultipleProjectTracker
 from dev_tracker.config import ConfigManager
 
 
@@ -50,7 +51,7 @@ def display_active_prs(project_key=None, repo_name=None):
     try:
         if project_key and repo_name:
             # Show specific project's active PRs
-            tracker = PRTracker(project_key)
+            tracker = ProjectTracker(project_key)
             active_prs = tracker.get_active_prs(repo_name)
             
             if not active_prs:
@@ -78,7 +79,7 @@ def display_active_prs(project_key=None, repo_name=None):
             console.print(table)
         else:
             # Show all projects' active PRs
-            tracker = PRTracker()
+            tracker = MultipleProjectTracker()
             all_prs = tracker.get_all_active_prs()
             
             if not all_prs['projects']:
@@ -145,7 +146,6 @@ def display_help():
     3. Add more projects if needed (PROJECT_2, PROJECT_3, etc.)
     """
     console.print(Panel(help_text.strip(), expand=False))
-
 
 def main():
     """Main entry point"""
