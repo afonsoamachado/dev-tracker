@@ -14,14 +14,9 @@ cp .env.example .env
    - `PROJECT_X_NAME` - Project names
    - `PROJECT_X_REPOS` - Repos to track per project
 
-3. Install:
-```bash
-pip install -e .
-```
-
 4. Run:
 ```bash
-
+dev-tracker <command>
 ```
 
 ## DEV Setup
@@ -65,11 +60,16 @@ venv\Scripts\activate.bat
 **3. Install Dependencies**
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-lock.txt
 ```
 
 **4. Run the Application**
 
 ```bash
-python main.py
+python -m dev_tracker
+```
+
+**5. Install**
+```bash
+pip install -e .
 ```
