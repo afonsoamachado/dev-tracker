@@ -2,7 +2,7 @@
 Project Tracker module
 Tracks and processes PR data for a single Azure DevOps project
 """
-from dev_tracker.api_client import AzureDevOpsClient
+from dev_tracker.azure_devops.git_client import AzureDevOpsGitClient
 from dev_tracker.config import ConfigManager
 
 
@@ -18,7 +18,7 @@ class ProjectTracker:
         """
         self.project_key = project_key
         self.config_manager = ConfigManager()
-        self.client = AzureDevOpsClient(project_key)
+        self.client = AzureDevOpsGitClient(project_key)
         self.project_config = self.config_manager.get_project(project_key)
 
         self.pr_status_map = {

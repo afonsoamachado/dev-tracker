@@ -1,6 +1,9 @@
 [project]
 name = "dev-tracker"
-version = "0.1.0"
+description = "Azure DevOps PR and release tracking CLI"
+readme = "README.md"
+requires-python = ">=3.10"
+dynamic = ["version"]
 dependencies = [
     "requests>=2.31",
     "python-dotenv>=1.0",
@@ -11,5 +14,10 @@ dependencies = [
 dev-tracker = "dev_tracker.cli:main"
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=68", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[tool.setuptools.packages.find]
+where = ["src"]
