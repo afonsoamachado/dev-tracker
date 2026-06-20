@@ -52,9 +52,18 @@ class AzureDevOpsAuth:
     
     def get_base_url(self):
         """
-        Get the base URL for Azure DevOps API
+        Get the base URL for Azure DevOps API with organization.
         
         Returns:
             str: Base URL
         """
         return f"https://dev.azure.com/{self.organization}"
+    
+    def get_release_base_url(self):
+        """
+        Get the base URL for Release Management APIs with organization.
+        
+        Returns:
+            str: Base URL
+        """
+        return f"https://vsrm.dev.azure.com/{self.organization}"
