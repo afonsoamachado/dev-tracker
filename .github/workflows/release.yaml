@@ -2,12 +2,14 @@ name: Auto Create Release
 
 on:
   push:
-    tags:
-      - 'v*' # Triggers on any pushed tag starting with "v" (e.g., v1.2.0)
+    branches:
+      - master # Triggers on every push to master; the job below filters for release merges
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    # Only run when this push is a merge commit whose message references a release/** branch.
+    if: contains(github.event.head_commit.message, 'release/')
 
     # CRITICAL: This permission is required to allow the Action to create tags and releases
     permissions:
@@ -16,33 +18,59 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history needed to inspect merge parents
+
+      - name: Verify this merge came from a release/** branch
+        id: check_release_merge
+        run: |
+          # Find the source branch of the most recent merge into master.
+          # Works for standard GitHub "Merge pull request #N from org/release/v1.2.0" messages.
+          MERGE_MSG="${{ github.event.head_commit.message }}"
+          SOURCE_BRANCH=$(echo "$MERGE_MSG" | grep -oE 'release/[A-Za-z0-9._-]+' | head -n1 || true)
+
+          if [ -z "$SOURCE_BRANCH" ]; then
+            echo "Not a release/** merge — skipping release."
+            echo "IS_RELEASE=false" >> $GITHUB_OUTPUT
+          else
+            echo "Detected merge from $SOURCE_BRANCH"
+            echo "IS_RELEASE=true" >> $GITHUB_OUTPUT
+            echo "SOURCE_BRANCH=$SOURCE_BRANCH" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set up Python
+        if: steps.check_release_merge.outputs.IS_RELEASE == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
       - name: Install build tool
+        if: steps.check_release_merge.outputs.IS_RELEASE == 'true'
         run: python -m pip install --upgrade build
 
       - name: Build wheel and sdist
+        if: steps.check_release_merge.outputs.IS_RELEASE == 'true'
         run: python -m build
         # Produces dist/dev_tracker-X.Y.Z-py3-none-any.whl and dist/dev_tracker-X.Y.Z.tar.gz
 
       - name: Extract Version Name
+        if: steps.check_release_merge.outputs.IS_RELEASE == 'true'
         id: get_version
         run: |
-          # Grabs the tag name (e.g., "v1.2.0")
-          VERSION="${GITHUB_REF_NAME}"
+          # Strips the "release/" prefix from the detected source branch to leave just "v1.2.0"
+          SOURCE_BRANCH="${{ steps.check_release_merge.outputs.SOURCE_BRANCH }}"
+          VERSION="${SOURCE_BRANCH#release/}"
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create or Update GitHub Release
+        if: steps.check_release_merge.outputs.IS_RELEASE == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.get_version.outputs.VERSION }}"
 
-          # Check if the release already exists
+          # No tag exists yet at this point — gh release create will create it,
+          # pointed at the current master commit (the merge commit itself).
           if gh release view "$VERSION" >/dev/null 2>&1; then
             echo "Release $VERSION exists. Promoting to final..."
             gh release edit "$VERSION" \
@@ -57,6 +85,6 @@ jobs:
             gh release create "$VERSION" dist/* \
               --title "Release $VERSION" \
               --generate-notes \
-              --target "$GITHUB_REF_NAME" \
+              --target "master" \
               --latest
           fi
