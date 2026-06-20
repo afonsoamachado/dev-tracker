@@ -36,8 +36,9 @@ jobs:
           BRANCH_NAME="${GITHUB_REF_NAME}"
           # Strips the "release/" prefix to leave just "v1.2.0"
           VERSION="${BRANCH_NAME#release/}"
-          # Tag pre-releases distinctly so they never collide with the final release tag
-          PRERELEASE_TAG="${VERSION}-pre"
+          # Short commit SHA gives every push a unique, traceable pre-release tag
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          PRERELEASE_TAG="${VERSION}-pre.${SHORT_SHA}"
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "PRERELEASE_TAG=$PRERELEASE_TAG" >> $GITHUB_OUTPUT
 
@@ -48,11 +49,12 @@ jobs:
           TAG="${{ steps.get_version.outputs.PRERELEASE_TAG }}"
           VERSION="${{ steps.get_version.outputs.VERSION }}"
 
-          # Check if the pre-release already exists
+          # Each commit gets its own tag, so this will always be a fresh release —
+          # the update branch below only matters if a workflow is re-run on the same commit.
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Pre-release $TAG exists. Updating..."
             gh release edit "$TAG" \
-              --title "Pre-Release $VERSION" \
+              --title "Pre-Release $VERSION ($TAG)" \
               --generate-notes \
               --prerelease
             # Overwrite any old assets with the fresh build
@@ -60,7 +62,7 @@ jobs:
           else
             echo "Pre-release $TAG does not exist. Creating..."
             gh release create "$TAG" dist/* \
-              --title "Pre-Release $VERSION" \
+              --title "Pre-Release $VERSION ($TAG)" \
               --generate-notes \
               --target "$GITHUB_REF_NAME" \
               --prerelease
