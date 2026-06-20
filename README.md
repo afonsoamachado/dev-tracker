@@ -14,76 +14,15 @@ cp .env.example .env
    - `PROJECT_X_NAME` - Project names
    - `PROJECT_X_REPOS` - Repos to track per project
 
-3. Run the tracker:
-
-**With venv activated (recommended):**
+3. Install:
 ```bash
-source venv/bin/activate
-python main.py menu       # Interactive menu - choose summary or active PRs
-python main.py summary    # Show PR statistics for ALL projects
-python main.py active     # List all open PRs across ALL projects
-python main.py help       # Show all commands
+pip install -e .
 ```
 
-**Interactive Mode (Live Auto-Refresh):**
+4. Run:
 ```bash
-python main.py interactive              # All projects, 60s refresh (default)
-python main.py interactive PROJECT_1    # Single project, 60s refresh
-python main.py interactive all 30       # All projects, 30s refresh
-python main.py interactive PROJECT_2 45 # Single project, 45s refresh
+
 ```
-Press `Ctrl+C` to exit interactive mode.
-
-## 📋 Menu Mode (Navigate Summary & Active PRs)
-
-For an easy interactive experience, use the menu mode:
-
-```bash
-python main.py menu
-```
-
-**Features:**
-- Choose between Summary and Active PRs views
-- Select specific projects or view all
-- Easy navigation back to menu
-- Type `q` to quit at any time
-
-**Or run directly without activation:**
-```bash
-./venv/bin/python main.py summary
-```
-
-**Or specify a single project:**
-```bash
-python main.py summary PROJECT_1
-python main.py active PROJECT_2
-```
-
-## 🔄 Interactive Mode (Auto-Refresh)
-
-For live monitoring, use interactive mode to get automatic updates without manual reruns:
-
-```bash
-python main.py interactive              # Default: all projects, 60s refresh
-python main.py interactive PROJECT_1 30 # Single project, 30s refresh
-```
-
-**Features:**
-- Auto-refreshes at configurable interval
-- Shows last update timestamp
-- Press `Ctrl+C` to exit
-- Great for dashboards and monitoring
-
-🔑 Where to Get Your Personal Access Token
-Go to: https://dev.azure.com/{your-organization}
-Click your profile picture → Personal access tokens
-Click New Token
-Set these options:
-Name: repo-tracker
-Scopes: Code (Read) ✓
-Expiration: Set as needed
-Click Create and copy the token
-
 
 ## DEV Setup
 

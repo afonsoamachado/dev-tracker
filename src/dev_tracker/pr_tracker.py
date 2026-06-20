@@ -4,8 +4,8 @@ Processes and filters PR data from Azure DevOps
 """
 import sys
 from datetime import datetime
-from api_client import AzureDevOpsClient
-from config import ConfigManager
+from dev_tracker.api_client import AzureDevOpsClient
+from dev_tracker.config import ConfigManager
 
 
 class PRTracker:

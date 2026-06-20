@@ -3,7 +3,7 @@ Azure DevOps API client module
 Handles all HTTP requests to the Azure DevOps REST API
 """
 import requests
-from auth import AzureDevOpsAuth
+from dev_tracker.auth import AzureDevOpsAuth
 
 
 class AzureDevOpsClient:
