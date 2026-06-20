@@ -3,10 +3,10 @@ Azure DevOps API client module
 Handles all HTTP requests to the Azure DevOps REST API
 """
 import requests
-from dev_tracker.auth import AzureDevOpsAuth
+from dev_tracker.azure_devops.auth import AzureDevOpsAuth
 
 
-class AzureDevOpsClient:
+class AzureDevOpsGitClient:
     """Client for interacting with Azure DevOps REST API"""
     
     def __init__(self, project_key=None):
@@ -19,12 +19,11 @@ class AzureDevOpsClient:
         """
         self.auth = AzureDevOpsAuth(project_key)
         self.base_url = self.auth.get_base_url()
-        self.release_base_url = self.auth.get_release_base_url()
         self.headers = self.auth.get_auth_header()
         self.headers['Content-Type'] = 'application/json'
         self.api_version = "7.0"
     
-    def _make_request(self, host, endpoint, method="GET", params=None):
+    def _make_request(self, endpoint, method="GET", params=None):
         """
         Make HTTP request to Azure DevOps API
         
@@ -36,7 +35,7 @@ class AzureDevOpsClient:
         Returns:
             dict: JSON response data
         """
-        url = f"{host}/{endpoint}"
+        url = f"{self.base_url}/{endpoint}"
         
         try:
             if method == "GET":
@@ -45,6 +44,7 @@ class AzureDevOpsClient:
                 response = requests.request(method, url, headers=self.headers, params=params)
             
             response.raise_for_status()
+            
             return response.json()
         except requests.exceptions.HTTPError as e:
             raise Exception(f"API Error: {e.response.status_code} - {e.response.text}")
@@ -59,7 +59,7 @@ class AzureDevOpsClient:
             list: List of repository data
         """
         endpoint = f"_apis/git/repositories?project={self.auth.project}&api-version={self.api_version}"
-        response = self._make_request(self.base_url,endpoint)
+        response = self._make_request(endpoint)
         return response.get('value', [])
     
     def get_pull_requests(self, repo_id, status="active"):
@@ -88,7 +88,7 @@ class AzureDevOpsClient:
             f"&api-version={self.api_version}"
         )
         
-        response = self._make_request(self.base_url,endpoint)
+        response = self._make_request(endpoint)
         return response.get('value', [])
     
     def get_pull_request_details(self, repo_id, pr_id):
@@ -108,7 +108,7 @@ class AzureDevOpsClient:
             f"&api-version={self.api_version}"
         )
         
-        return self._make_request(self.base_url,endpoint)
+        return self._make_request(endpoint)
     
     def get_pr_threads(self, repo_id, pr_id):
         """
@@ -127,5 +127,5 @@ class AzureDevOpsClient:
             f"&api-version={self.api_version}"
         )
         
-        response = self._make_request(self.base_url,endpoint)
+        response = self._make_request(endpoint)
         return response.get('value', [])
