@@ -4,7 +4,7 @@ Handles PAT-based authentication for Azure DevOps API
 """
 import os
 import base64
-from config import ConfigManager
+from dev_tracker.config import ConfigManager
 
 
 class AzureDevOpsAuth:

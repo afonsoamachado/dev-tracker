@@ -1,0 +1,15 @@
+[project]
+name = "dev-tracker"
+version = "0.1.0"
+dependencies = [
+    "requests>=2.31",
+    "python-dotenv>=1.0",
+    "rich>=13.0",
+]
+
+[project.scripts]
+dev-tracker = "dev_tracker.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

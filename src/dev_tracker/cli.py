@@ -8,8 +8,8 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from datetime import datetime
-from pr_tracker import PRTracker
-from config import ConfigManager
+from dev_tracker.pr_tracker import PRTracker
+from dev_tracker.config import ConfigManager
 
 
 console = Console()
