@@ -46,13 +46,13 @@ def display_projects():
         console.print(f"[red]Error listing projects: {e}[/red]")
 
 
-def display_active_prs(project_key=None, repo_name=None):
+def display_active_prs(project_key=None, repo_name=None, force_refresh=False):
     """Display all active (open) pull requests"""
     try:
         if project_key and repo_name:
             # Show specific project's active PRs
             tracker = ProjectTracker(project_key)
-            active_prs = tracker.get_active_prs(repo_name)
+            active_prs = tracker.get_active_prs(repo_name, force_refresh=force_refresh)
             
             if not active_prs:
                 console.print("[yellow]No active pull requests found[/yellow]")
@@ -80,7 +80,7 @@ def display_active_prs(project_key=None, repo_name=None):
         else:
             # Show all projects' active PRs
             tracker = MultipleProjectTracker()
-            all_prs = tracker.get_all_active_prs()
+            all_prs = tracker.get_all_active_prs(force_refresh=force_refresh)
             
             if not all_prs['projects']:
                 console.print("[yellow]No active pull requests found in any project[/yellow]")
@@ -126,7 +126,7 @@ def display_help():
     Multi-Project Support - View All Projects Together
 
     [bold]Usage:[/bold]
-    python main.py [command] [project_key] [optional_args]
+    python main.py [command] [project_key] [optional_args] [flags]
 
     [bold]Commands:[/bold]
     [green]projects[/green]                      - List all configured projects
@@ -134,6 +134,9 @@ def display_help():
     [green]active[/green] [PROJECT_1]            - Show active PRs in specific project
     [green]active[/green] [PROJECT_1] [repo]     - Show active PRs for specific repo
     [green]help[/green]                          - Display this help message
+
+    [bold]Flags:[/bold]
+    [green]--refresh[/green]                     - Bypass the local repo cache (use after adding new repos)
 
     [bold]Notes:[/bold]
     1. Copy .env.example to .env
@@ -144,15 +147,22 @@ def display_help():
         PROJECT_1_REPOS=repo1,repo2,repo3
 
     3. Add more projects if needed (PROJECT_2, PROJECT_3, etc.)
+    4. The repository list is cached in dev_tracker/.cache/repositories.json.
+       It auto-refreshes when you change PROJECT_*_REPOS in .env.
+       Run with --refresh to force a fresh fetch from Azure DevOps.
     """
     console.print(Panel(help_text.strip(), expand=False))
 
 def main():
     """Main entry point"""
     command = sys.argv[1].lower() if len(sys.argv) > 1 else "summary"
-    project_key = sys.argv[2] if len(sys.argv) > 2 else None
-    optional_arg = sys.argv[3] if len(sys.argv) > 3 else None
-    
+    args = [a for a in sys.argv[2:] if not a.startswith("--")]
+    flags = {a for a in sys.argv[2:] if a.startswith("--")}
+
+    project_key = args[0] if len(args) > 0 else None
+    optional_arg = args[1] if len(args) > 1 else None
+    force_refresh = "--refresh" in flags
+
     # Convert "all" to None (meaning all projects)
     if project_key and project_key.lower() == "all":
         project_key = None
@@ -162,7 +172,7 @@ def main():
     elif command == "projects":
         display_projects()
     elif command == "active":
-        display_active_prs(project_key, optional_arg)
+        display_active_prs(project_key, optional_arg, force_refresh=force_refresh)
     else:
         console.print(f"[red]Unknown command: {command}[/red]")
         console.print("[yellow]Use 'python main.py help' for usage information[/yellow]")

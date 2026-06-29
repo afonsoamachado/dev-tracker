@@ -84,17 +84,18 @@ class ProjectTracker:
 
         return all_stats
 
-    def get_active_prs(self, repo_name=None):
+    def get_active_prs(self, repo_name=None, force_refresh=False):
         """
         Get active (open) pull requests
 
         Args:
             repo_name (str, optional): Filter by specific repository name
+            force_refresh (bool): Bypass the repository list cache
 
         Returns:
             list: List of active PRs with details
         """
-        repos = self.client.get_repositories()
+        repos = self.client.get_repositories(force_refresh=force_refresh)
         active_prs = []
 
         for repo in repos:

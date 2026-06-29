@@ -50,9 +50,12 @@ class MultipleProjectTracker:
 
         return summary
 
-    def get_all_active_prs(self):
+    def get_all_active_prs(self, force_refresh=False):
         """
         Get active pull requests across all projects
+
+        Args:
+            force_refresh (bool): Bypass the repository list cache
 
         Returns:
             dict: Active PRs organized by project
@@ -65,7 +68,7 @@ class MultipleProjectTracker:
 
         for project_key, project_config in all_projects.items():
             tracker = ProjectTracker(project_key)
-            prs = tracker.get_active_prs()
+            prs = tracker.get_active_prs(force_refresh=force_refresh)
 
             if prs:
                 all_prs['projects'][project_key] = {

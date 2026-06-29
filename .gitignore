@@ -6,6 +6,9 @@ env/
 # Security / Secrets
 .env
 
+# Cache
+src/dev_tracker/azure_devops/.cache/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
