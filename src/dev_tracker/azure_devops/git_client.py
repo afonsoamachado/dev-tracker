@@ -7,36 +7,7 @@ import json
 import os
 import requests
 from dev_tracker.azure_devops.auth import AzureDevOpsAuth
-
-_CACHE_DIR = os.path.join(os.path.dirname(__file__), ".cache")
-_CACHE_FILE = os.path.join(_CACHE_DIR, "repositories.json")
-
-
-def _load_repo_cache() -> dict:
-    """Load the on-disk repo cache, returning an empty dict on any error."""
-    try:
-        with open(_CACHE_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-
-
-def _save_repo_cache(cache: dict) -> None:
-    """Persist the repo cache to disk."""
-    os.makedirs(_CACHE_DIR, exist_ok=True)
-    with open(_CACHE_FILE, "w", encoding="utf-8") as f:
-        json.dump(cache, f, indent=2)
-
-
-def _repo_filter_fingerprint(repo_filter: list[str]) -> str:
-    """
-    Return a short hash that represents the current repo filter list.
-    When the configured repos change the fingerprint changes, which
-    triggers a cache refresh for that project.
-    """
-    canonical = ",".join(sorted(repo_filter))
-    return hashlib.md5(canonical.encode()).hexdigest()[:8]
-
+from dev_tracker.azure_devops.local_repo_cache import LocalRepoCache
 
 class AzureDevOpsGitClient:
     """Client for interacting with Azure DevOps REST API"""
@@ -54,11 +25,16 @@ class AzureDevOpsGitClient:
         self.headers = self.auth.get_auth_header()
         self.headers['Content-Type'] = 'application/json'
         self.api_version = "7.0"
+        
+        # Cache
+        file_name = (f"{self.auth.organization}_{self.auth.project}")
+        self.repo_cache = LocalRepoCache(file_name)
         # Unique cache key: org + project name + repo-filter fingerprint
         self._cache_key = (
-            f"{self.auth.organization}::{self.auth.project}"
-            f"::{_repo_filter_fingerprint(self.auth.repo_filter)}"
+            f"azuredevops::{self.auth.organization}::{self.auth.project}"
+            f"::{self.repo_cache.repo_filter_fingerprint(self.auth.repo_filter)}"
         )
+        
     
     def _make_request(self, endpoint, method="GET", params=None):
         """
@@ -92,11 +68,16 @@ class AzureDevOpsGitClient:
         """
         Get all repositories in the project.
 
-        Results are cached in ``<package>/.cache/repositories.json`` and keyed
-        by organisation + project + repo-filter fingerprint.  The cache is
-        automatically invalidated whenever the configured repo list in .env
-        changes.  Pass ``force_refresh=True`` to bypass the cache entirely
-        (e.g. after adding a brand-new repo to Azure DevOps).
+        Results are cached in ``<package>/.cache/<org>_<project>_repositories.json``
+        and keyed by organisation + project + repo-filter fingerprint. The
+        cache is automatically invalidated whenever the configured repo list
+        in .env changes. Pass ``force_refresh=True`` to bypass the cache
+        entirely (e.g. after adding a brand-new repo to Azure DevOps).
+
+        Thread-safe: the check-fetch-store sequence is atomic per cache
+        file (see LocalRepoCache.get_or_set), so concurrent threads
+        querying the same project never trigger duplicate API calls or
+        clobber each other's cache writes.
 
         Args:
             force_refresh (bool): Skip cache and fetch fresh data from the API.
@@ -104,21 +85,19 @@ class AzureDevOpsGitClient:
         Returns:
             list: List of repository data
         """
-        if not force_refresh:
-            cache = _load_repo_cache()
-            if self._cache_key in cache:
-                return cache[self._cache_key]
+        def _fetch():
+            endpoint = f"_apis/git/repositories?project={self.auth.project}&api-version={self.api_version}"
+            return self._make_request(endpoint).get('value', [])
 
-        # Cache miss – fetch from the API and persist
-        endpoint = f"_apis/git/repositories?project={self.auth.project}&api-version={self.api_version}"
-        response = self._make_request(endpoint)
-        repos = response.get('value', [])
+        if force_refresh:
+            repos = _fetch()
+            # still persist so subsequent non-refresh calls hit the cache
+            cache = self.repo_cache.load()
+            cache[self._cache_key] = repos
+            self.repo_cache.save(cache)
+            return repos
 
-        cache = _load_repo_cache()
-        cache[self._cache_key] = repos
-        _save_repo_cache(cache)
-
-        return repos
+        return self.repo_cache.get_or_set(self._cache_key, _fetch)
     
     def get_pull_requests(self, repo_id, status="active"):
         """
