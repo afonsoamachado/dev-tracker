@@ -94,7 +94,7 @@ src/
 | Module | Responsibility |
 |---|---|
 | `auth.py` | Builds the Basic Auth header from your PAT and resolves project config |
-| `git_client.py` | Talks to the Azure DevOps REST API; caches repo lists |
+| `git_client.py` | Talks to the Azure DevOps REST API (classic); caches repo lists |
 | `local_repo_cache.py` | Reads/writes the per-project JSON cache file safely across threads |
 | `config.py` | Parses `.env` into `ProjectConfig` objects, one per `PROJECT_X` |
 | `project_tracker.py` | Builds PR stats/summaries for a single project, fetching repos in parallel |
