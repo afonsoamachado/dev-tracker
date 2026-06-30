@@ -3,23 +3,42 @@ on:
   push:
     branches:
       - master # Triggers on every push to master; the job below filters for release merges
+  workflow_dispatch:
+    inputs:
+      release_branch:
+        description: 'Release branch to publish (e.g. release/v1.2.0)'
+        required: true
+        type: string
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
-    # Only run when this push is a merge commit whose message references a release/** branch.
-    if: contains(github.event.head_commit.message, 'release/')
-    # CRITICAL: This permission is required to allow the Action to create tags, releases,
-    # and to lock the release branch via the Branch Protection API
+    # Run automatically when this push is a merge commit whose message references a
+    # release/** branch, OR whenever the workflow is triggered manually.
+    if: contains(github.event.head_commit.message, 'release/') || github.event_name == 'workflow_dispatch'
+    # CRITICAL: This permission is required to allow the Action to create tags and releases
     permissions:
       contents: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
+          # When triggered manually, build from the chosen release branch directly.
+          # On a normal push to master, default to master (the merge commit itself).
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_branch || github.ref }}
           fetch-depth: 0 # full history needed to inspect merge parents
       - name: Verify this merge came from a release/** branch
         id: check_release_merge
         run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # Manual run — use the branch name supplied by the user directly,
+            # no commit-message parsing needed.
+            SOURCE_BRANCH="${{ inputs.release_branch }}"
+            echo "Manual run for $SOURCE_BRANCH"
+            echo "IS_RELEASE=true" >> $GITHUB_OUTPUT
+            echo "SOURCE_BRANCH=$SOURCE_BRANCH" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           # Find the source branch of the most recent merge into master.
           # Works for standard GitHub "Merge pull request #N from org/release/v1.2.0" messages.
           MERGE_MSG="${{ github.event.head_commit.message }}"
@@ -74,7 +93,7 @@ jobs:
             gh release create "$VERSION" dist/* \
               --title "Release $VERSION" \
               --generate-notes \
-              --target "master" \
+              --target "${{ github.event_name == 'workflow_dispatch' && inputs.release_branch || 'master' }}" \
               --latest
           fi
       - name: Lock the release branch
