@@ -1,6 +1,16 @@
-# Repo Tracker
+# Dev Tracker
 
 A cross-platform CLI tool built in Python to monitor your Azure DevOps Pull Requests across multiple projects.
+ 
+> 🤖 This project was developed in collaboration with [Claude](https://claude.ai), used throughout for design decisions, implementation, and documentation — a real-world example of AI-assisted software development.
+
+## 📑 Table of Contents
+
+- [Quick Start](#-quick-start)
+- [Commands](#-commands)
+- [Repo Cache](#-repo-cache)
+- [Project Structure](#-project-structure)
+- [Dev Setup](#-dev-setup)
 
 ## 🚀 Quick Start
 
@@ -50,7 +60,7 @@ dev-tracker <command>
 
 ## ⚡ Repo Cache
 
-Repository lists are cached locally in `azure_devops/.cache/repositories.json` to avoid redundant API calls on every run.
+Repository lists are cached locally per project/org in `dev_tracker/azure_devops/.cache/` to avoid redundant API calls on every run.
 
 The cache is **automatically invalidated** when you change `PROJECT_*_REPOS` in your `.env`. Use `--refresh` to force a fresh fetch if you've added new repos directly in Azure DevOps:
 
@@ -58,6 +68,39 @@ The cache is **automatically invalidated** when you change `PROJECT_*_REPOS` in 
 dev-tracker active --refresh
 dev-tracker active PROJECT_1 --refresh
 ```
+
+PR and repo fetches across projects and repos run in parallel (see `threading_utils.py`), so cache reads/writes are thread-safe by design.
+
+---
+
+## 📁 Project Structure
+
+```
+src/
+└── dev_tracker/
+    ├── azure_devops/
+    │   ├── auth.py               # PAT-based authentication for Azure DevOps API
+    │   ├── git_client.py         # HTTP client wrapping the Azure DevOps REST API
+    │   └── local_repo_cache.py   # Thread-safe on-disk cache for repo lists
+    ├── __init__.py                # Package entry point / exports
+    ├── __main__.py                # Enables `python -m dev_tracker`
+    ├── cli.py                     # CLI command parsing and console output
+    ├── config.py                  # Loads and validates .env project configuration
+    ├── multiple_project_tracker.py  # Aggregates PR data across all projects (parallel)
+    ├── project_tracker.py         # Fetches and summarizes PR data for one project (parallel)
+    └── threading_utils.py         # Shared ThreadPoolExecutor helper (run_parallel)
+```
+
+| Module | Responsibility |
+|---|---|
+| `auth.py` | Builds the Basic Auth header from your PAT and resolves project config |
+| `git_client.py` | Talks to the Azure DevOps REST API; caches repo lists |
+| `local_repo_cache.py` | Reads/writes the per-project JSON cache file safely across threads |
+| `config.py` | Parses `.env` into `ProjectConfig` objects, one per `PROJECT_X` |
+| `project_tracker.py` | Builds PR stats/summaries for a single project, fetching repos in parallel |
+| `multiple_project_tracker.py` | Builds aggregated stats across all projects, fetching projects in parallel |
+| `threading_utils.py` | `run_parallel()` — shared helper wrapping `ThreadPoolExecutor` + `as_completed` |
+| `cli.py` | Argument parsing, command dispatch, and Rich-formatted console output |
 
 ---
 
