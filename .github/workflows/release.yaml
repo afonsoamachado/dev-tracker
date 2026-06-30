@@ -15,11 +15,9 @@ jobs:
     # Run automatically when this push is a merge commit whose message references a
     # release/** branch, OR whenever the workflow is triggered manually.
     if: contains(github.event.head_commit.message, 'release/') || github.event_name == 'workflow_dispatch'
-    # CRITICAL: This permission is required to allow the Action to create tags, releases,
-    # and to lock the release branch via the Branch Protection API
+    # CRITICAL: This permission is required to allow the Action to create tags and releases
     permissions:
       contents: write
-      administration: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
