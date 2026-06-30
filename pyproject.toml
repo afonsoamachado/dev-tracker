@@ -18,6 +18,11 @@ requires = ["setuptools>=68", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
+# Only match clean "X.Y.Z" or "vX.Y.Z" tags (e.g. "0.1.0", "v1.2.3").
+# Prevents crashes on non-standard tags like "0.1.0-pre.482476c".
+tag_regex = "^[vV]?(?P<version>\\d+\\.\\d+\\.\\d+)$"
+# If no matching tag is found in history, fall back to this instead of erroring.
+fallback_version = "0.0.0"
 
 [tool.setuptools.packages.find]
 where = ["src"]
