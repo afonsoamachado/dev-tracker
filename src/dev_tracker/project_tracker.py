@@ -4,6 +4,7 @@ Tracks and processes PR data for a single Azure DevOps project
 """
 from dev_tracker.azure_devops.git_client import AzureDevOpsGitClient
 from dev_tracker.config import ConfigManager
+from dev_tracker.threading_utils import run_parallel
 
 
 class ProjectTracker:
@@ -37,56 +38,51 @@ class ProjectTracker:
         Returns:
             bool: True if repo should be included
         """
-        # If repo_filter is empty, include all repos
         if not self.project_config.repos:
             return True
-        # Otherwise, only include repos in the filter list
         return repo_name in self.project_config.repos
+
+    def _filtered_repos(self, repos, repo_name=None):
+        """Return only the repos that pass both the name filter and project filter."""
+        return [
+            r for r in repos
+            if (not repo_name or r['name'] == repo_name)
+            and self._should_include_repo(r['name'])
+        ]
 
     def get_author(self):
         return self.config_manager.get_author()
 
-    def get_all_pr_stats(self):
+    def get_all_pr_stats(self, force_refresh=False):
         """
-        Get PR statistics for all repositories in this project
+        Get PR statistics for all repositories in this project.
+        PRs for each repo are fetched in parallel.
 
         Returns:
             dict: Statistics organized by repository
         """
-        repos = self.client.get_repositories()
-        all_stats = {}
+        repos = self._filtered_repos(self.client.get_repositories(force_refresh=force_refresh))
 
-        for repo in repos:
-            repo_name = repo['name']
-
-            # Skip repos not in filter list
-            if not self._should_include_repo(repo_name):
-                continue
-
-            repo_id = repo['id']
-
-            # Get all PRs (active + completed + abandoned)
-            prs = self.client.get_pull_requests(repo_id, status='all')
-
+        def _fetch_repo_stats(repo):
+            prs = self.client.get_pull_requests(repo['id'], status='all')
             stats = {
-                'repo_name': repo_name,
-                'repo_id': repo_id,
+                'repo_name': repo['name'],
+                'repo_id': repo['id'],
                 'total_prs': len(prs),
-                'by_status': {}
+                'by_status': {
+                    name: sum(1 for pr in prs if pr['status'] == code)
+                    for code, name in self.pr_status_map.items()
+                }
             }
+            return repo['name'], stats
 
-            # Count by status
-            for status_code, status_name in self.pr_status_map.items():
-                status_prs = [pr for pr in prs if pr['status'] == status_code]
-                stats['by_status'][status_name] = len(status_prs)
-
-            all_stats[repo_name] = stats
-
-        return all_stats
+        results = run_parallel(repos, _fetch_repo_stats)
+        return dict(results)
 
     def get_active_prs(self, repo_name=None, force_refresh=False):
         """
-        Get active (open) pull requests
+        Get active (open) pull requests.
+        PRs for each repo are fetched in parallel.
 
         Args:
             repo_name (str, optional): Filter by specific repository name
@@ -95,23 +91,16 @@ class ProjectTracker:
         Returns:
             list: List of active PRs with details
         """
-        repos = self.client.get_repositories(force_refresh=force_refresh)
-        active_prs = []
+        repos = self._filtered_repos(
+            self.client.get_repositories(force_refresh=force_refresh),
+            repo_name=repo_name,
+        )
 
-        for repo in repos:
-            repo_display_name = repo['name']
-
-            # Skip if doesn't match specific repo filter or project repo filter
-            if repo_name and repo_display_name != repo_name:
-                continue
-            if not self._should_include_repo(repo_display_name):
-                continue
-
+        def _fetch_repo_prs(repo):
             prs = self.client.get_pull_requests(repo['id'], status='active')
-
-            for pr in prs:
-                active_prs.append({
-                    'repo': repo_display_name,
+            return [
+                {
+                    'repo': repo['name'],
                     'pr_id': pr['pullRequestId'],
                     'title': pr['title'],
                     'author': pr['createdBy']['displayName'],
@@ -119,62 +108,57 @@ class ProjectTracker:
                     'status': self.pr_status_map.get(pr['status'], 'unknown'),
                     'source_branch': pr['sourceRefName'].replace('refs/heads/', ''),
                     'target_branch': pr['targetRefName'].replace('refs/heads/', ''),
-                    'url': pr['url']
-                })
+                    'url': pr['url'],
+                }
+                for pr in prs
+            ]
 
+        results = run_parallel(repos, _fetch_repo_prs)
+        active_prs = []
+        for repo_prs in results:
+            active_prs.extend(repo_prs)
         return active_prs
 
-    def get_pr_summary(self, repo_name=None):
+    def get_pr_summary(self, repo_name=None, force_refresh=False):
         """
-        Get a summary of PR activity
+        Get a summary of PR activity.
+        PRs for each repo are fetched in parallel.
 
         Args:
             repo_name (str, optional): Filter by specific repository
+            force_refresh (bool): Bypass the repository list cache
 
         Returns:
             dict: Summary statistics
         """
-        repos = self.client.get_repositories()
+        repos = self._filtered_repos(
+            self.client.get_repositories(force_refresh=force_refresh),
+            repo_name=repo_name,
+        )
+
         summary = {
             'project': self.project_config.project_name,
             'organization': self.project_config.org,
-            'total_repos': 0,
+            'total_repos': len(repos),
             'total_active': 0,
             'total_completed': 0,
             'total_abandoned': 0,
             'repos': {}
         }
 
-        for repo in repos:
-            repo_display_name = repo['name']
-
-            # Skip if doesn't match specific repo filter or project repo filter
-            if repo_name and repo_display_name != repo_name:
-                continue
-            if not self._should_include_repo(repo_display_name):
-                continue
-
-            summary['total_repos'] += 1
+        def _fetch_repo_summary(repo):
             prs = self.client.get_pull_requests(repo['id'], status='all')
-
-            repo_summary = {
-                'active': 0,
-                'completed': 0,
-                'abandoned': 0
-            }
-
+            counts = {'active': 0, 'completed': 0, 'abandoned': 0}
             for pr in prs:
                 status = self.pr_status_map.get(pr['status'], 'unknown')
-                if status == 'active':
-                    repo_summary['active'] += 1
-                    summary['total_active'] += 1
-                elif status == 'completed':
-                    repo_summary['completed'] += 1
-                    summary['total_completed'] += 1
-                elif status == 'abandoned':
-                    repo_summary['abandoned'] += 1
-                    summary['total_abandoned'] += 1
+                if status in counts:
+                    counts[status] += 1
+            return repo['name'], counts
 
-            summary['repos'][repo_display_name] = repo_summary
+        for repo_display_name, counts in run_parallel(repos, _fetch_repo_summary):
+            summary['repos'][repo_display_name] = counts
+            summary['total_active'] += counts['active']
+            summary['total_completed'] += counts['completed']
+            summary['total_abandoned'] += counts['abandoned']
 
         return summary
